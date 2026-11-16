@@ -14,6 +14,7 @@ import io.github.federicocastellani.ndsstation.emulation.NativeCore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class NdsApp : Application() {
     lateinit var settings: AppSettings
@@ -50,6 +51,8 @@ class NdsApp : Application() {
 
         identity = ConsoleIdentity(api, store)
         updater = Updater(this)
+        // Independent of the server and of signing in: an update may be what fixes either.
+        scope.launch { updater.checkInBackground(settings.checkForUpdates) }
         session = EmulatorSession(this)
         // A game must hand its save over (and pause) whenever the app leaves the screen:
         // Android may kill a background app without warning.

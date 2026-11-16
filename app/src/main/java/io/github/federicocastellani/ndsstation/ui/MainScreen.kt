@@ -71,7 +71,6 @@ fun MainScreen(onPlay: (GameInfo) -> Unit, onSignOut: (String?) -> Unit) {
     // A newer release: announced once, then marked on the Settings tab until installed.
     val update by app.updater.available.collectAsState()
     var showUpdate by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { app.updater.checkInBackground(settings.checkForUpdates) }
     LaunchedEffect(update?.version) {
         val info = update ?: return@LaunchedEffect
         val result = snackbar.showSnackbar("NDS Station ${info.version} è disponibile", "Aggiorna", duration = SnackbarDuration.Long)

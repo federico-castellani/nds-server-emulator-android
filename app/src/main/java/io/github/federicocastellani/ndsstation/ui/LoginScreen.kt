@@ -35,8 +35,10 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,6 +73,9 @@ fun LoginScreen(onSignedIn: () -> Unit) {
     var error by remember { mutableStateOf(LoginMessage.pending.also { LoginMessage.pending = null }) }
     var restoring by remember { mutableStateOf(settings.token != null) }
     var forcedChange by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val update by app.updater.available.collectAsState()
+    var showUpdate by remember { mutableStateOf(false) }
+    update?.let { info -> if (showUpdate) UpdateDialog(info) { showUpdate = false } }
 
     fun enterApp() {
         if (!settings.isAdmin && ApiClient.tokenSaysAdmin(app.api.token)) settings.isAdmin = true
@@ -171,6 +176,17 @@ fun LoginScreen(onSignedIn: () -> Unit) {
 
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
                     Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        update?.let { info ->
+                            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(12.dp)) {
+                                androidx.compose.foundation.layout.Row(
+                                    Modifier.padding(start = 12.dp, end = 4.dp).fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text("NDS Station ${info.version} è disponibile", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    TextButton(onClick = { showUpdate = true }) { Text("Aggiorna") }
+                                }
+                            }
+                        }
                         error?.let {
                             Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(12.dp)) {
                                 Text(it, Modifier.padding(12.dp).fillMaxWidth(), color = MaterialTheme.colorScheme.onErrorContainer)
