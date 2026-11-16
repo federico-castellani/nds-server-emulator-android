@@ -1,0 +1,18 @@
+# Gradle / Android Studio
+.gradle/
+.kotlin/
+build/
+app/build/
+app/.cxx/
+local.properties
+.idea/
+*.iml
+captures/
+
+# Output of build.ps1
+dist/
+
+# Signing keys never go in the repository
+*.jks
+*.keystore
+keystore.properties
