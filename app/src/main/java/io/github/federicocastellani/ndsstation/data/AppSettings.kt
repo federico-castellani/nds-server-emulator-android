@@ -38,6 +38,7 @@ class AppSettings(context: Context) {
     var volume by pref("volume", 0.8f)
     var fastForwardSpeed by pref("fastForwardSpeed", 3f)
     var fastForwardSound by enumPref("fastForwardSound", FastForwardSound.NormalPitch)
+    var checkForUpdates by pref("checkForUpdates", true)
     var controlsOpacity by pref("controlsOpacity", 0.55f)
     var controlsScale by pref("controlsScale", 1f)
     var haptics by pref("haptics", true)

@@ -8,6 +8,7 @@ import io.github.federicocastellani.ndsstation.data.ApiClient
 import io.github.federicocastellani.ndsstation.data.AppSettings
 import io.github.federicocastellani.ndsstation.data.ConsoleIdentity
 import io.github.federicocastellani.ndsstation.data.LocalStore
+import io.github.federicocastellani.ndsstation.data.Updater
 import io.github.federicocastellani.ndsstation.emulation.EmulatorSession
 import io.github.federicocastellani.ndsstation.emulation.NativeCore
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +25,8 @@ class NdsApp : Application() {
     lateinit var session: EmulatorSession
         private set
     lateinit var identity: ConsoleIdentity
+        private set
+    lateinit var updater: Updater
         private set
 
     /** False when the native core failed to load; the library still works. */
@@ -46,6 +49,7 @@ class NdsApp : Application() {
         }
 
         identity = ConsoleIdentity(api, store)
+        updater = Updater(this)
         session = EmulatorSession(this)
         // A game must hand its save over (and pause) whenever the app leaves the screen:
         // Android may kill a background app without warning.

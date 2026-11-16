@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FastForward
+import androidx.compose.material.icons.outlined.SystemUpdate
+import androidx.compose.material.icons.outlined.Update
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Gamepad
 import androidx.compose.material.icons.outlined.Info
@@ -39,6 +41,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +59,8 @@ import io.github.federicocastellani.ndsstation.data.FastForwardSound
 import io.github.federicocastellani.ndsstation.data.ScreenLayout
 import io.github.federicocastellani.ndsstation.emulation.Gamepad
 import io.github.federicocastellani.ndsstation.emulation.NativeCore
+import kotlinx.coroutines.launch
+import java.io.IOException
 
 @Composable
 private fun Header(text: String) {
@@ -110,6 +116,13 @@ fun SettingsScreen(modifier: Modifier) {
     var cacheSize by remember { mutableStateOf(app.store.cacheSize()) }
     var confirmClear by remember { mutableStateOf(false) }
     var noLog by remember { mutableStateOf(false) }
+    val update by app.updater.available.collectAsState()
+    var updateMessage by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
+    var showUpdate by remember { mutableStateOf(false) }
+    var autoUpdate by remember { mutableStateOf(s.checkForUpdates) }
+    val scope = rememberCoroutineScope()
+    update?.let { info -> if (showUpdate) UpdateDialog(info) { showUpdate = false } }
     var primaryDns by remember { mutableStateOf(s.primaryDns) }
     var secondaryDns by remember { mutableStateOf(s.secondaryDns) }
     val network = remember {
@@ -241,6 +254,32 @@ fun SettingsScreen(modifier: Modifier) {
                 Icons.Outlined.Storage, "ROM in cache",
                 if (cacheSize == 0L) "Nessuna ROM salvata sul dispositivo" else "${Formatter.formatShortFileSize(context, cacheSize)} per giocare più velocemente e offline",
             ) { TextButton(onClick = { confirmClear = true }, enabled = cacheSize > 0) { Text("Svuota") } }
+        }
+
+        item { Header("Aggiornamenti") }
+        item {
+            Row(
+                Icons.Outlined.SystemUpdate, "Versione ${app.updater.currentVersion}",
+                updateMessage ?: update?.let { "Disponibile la versione ${it.version}" } ?: "Le nuove versioni arrivano da GitHub",
+            ) {
+                TextButton(enabled = !checking, onClick = {
+                    if (update != null) showUpdate = true
+                    else scope.launch {
+                        checking = true
+                        updateMessage = try {
+                            if (app.updater.check() == null) "Hai già l'ultima versione." else null.also { showUpdate = true }
+                        } catch (e: IOException) {
+                            "Controllo non riuscito: verifica la connessione a Internet."
+                        }
+                        checking = false
+                    }
+                }) { Text(if (update != null) "Aggiorna" else if (checking) "Controllo…" else "Controlla") }
+            }
+        }
+        item {
+            Row(Icons.Outlined.Update, "Controlla all'avvio", "Cerca una nuova versione ogni volta che apri l'app") {
+                Switch(autoUpdate, { autoUpdate = it; s.checkForUpdates = it })
+            }
         }
 
         item { Header("Informazioni") }

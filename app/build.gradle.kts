@@ -1,7 +1,15 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+}
+
+// Release signing key, outside the repository (see README). In-app updates only install
+// over an APK signed with the same key, so every release must use it.
+val releaseKey = rootProject.file("keystore.properties").takeIf { it.exists() }?.let { file ->
+    Properties().apply { file.inputStream().use(::load) }
 }
 
 android {
@@ -13,8 +21,8 @@ android {
         applicationId = "io.github.federicocastellani.ndsstation"
         minSdk = 26          // AAudio
         targetSdk = 36
-        versionCode = 3
-        versionName = "2.0.2"
+        versionCode = 4
+        versionName = "2.1.0"
 
         ndk {
             // Phones, plus x86_64 for the Android emulator.
@@ -30,11 +38,21 @@ android {
         }
     }
 
+    signingConfigs {
+        if (releaseKey != null) create("release") {
+            storeFile = file(releaseKey.getProperty("storeFile"))
+            storePassword = releaseKey.getProperty("storePassword")
+            keyAlias = releaseKey.getProperty("keyAlias")
+            keyPassword = releaseKey.getProperty("keyPassword")
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Signed with the debug key until a release key is configured, so the APK installs.
-            signingConfig = signingConfigs.getByName("debug")
+            // Without keystore.properties the APK is signed with this PC's debug key: it
+            // installs, but cannot update an app signed with the release key.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
         }
     }
 

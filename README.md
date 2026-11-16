@@ -24,6 +24,7 @@ external/melonDS    submodule, fissato allo stesso commit del client Windows
 - Stessa identità di console (ID Nintendo WFC) su tutti i dispositivi dell'account: la lista amici resta valida passando dal PC al telefono.
 - Nintendo WFC: lotte e scambi online, anche tra giocatori sulla stessa rete di casa (relay LAN compatibile con il client Windows).
 - Pannello di amministrazione: utenti, password, caricamento giochi.
+- Aggiornamenti dall'app: controlla le release di GitHub, scarica l'APK, lo verifica e lo installa (Android chiede conferma).
 
 ## Compilare
 
@@ -35,6 +36,19 @@ git submodule update --init --recursive
 ```
 
 L'APK finisce in `dist\`. Le librerie native sono allineate a 16 KB, come richiesto da Android 15+.
+
+### Chiave di firma
+
+Gli aggiornamenti dall'app si installano solo sopra un APK firmato con la stessa chiave. La build release usa la chiave indicata in `keystore.properties` (fuori dal repository, ignorato da git):
+
+```
+storeFile=C:/Users/<utente>/.ndsstation/release.keystore
+storePassword=…
+keyAlias=…
+keyPassword=…
+```
+
+Conserva una copia di backup del keystore: senza, chi ha l'app installata dovrebbe disinstallarla per passare a una versione firmata con un'altra chiave. Senza `keystore.properties` l'APK viene firmato con la chiave di debug del PC.
 
 ## Licenza
 
