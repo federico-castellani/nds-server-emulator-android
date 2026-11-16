@@ -34,6 +34,8 @@ object NativeCore {
     external fun setPaused(paused: Boolean)
     external fun setSpeed(multiplier: Float)
     external fun setVolume(volume: Float)
+    /** Sound while fast-forwarding, see [io.github.federicocastellani.ndsstation.data.FastForwardSound]. */
+    external fun setFastForwardAudio(mode: Int)
     external fun setInput(pressedMask: Int)
     external fun setTouch(down: Boolean, x: Int, y: Int)
 

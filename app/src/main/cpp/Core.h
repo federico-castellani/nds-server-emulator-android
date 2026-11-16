@@ -43,8 +43,10 @@ void Unload();
 bool IsRunning();
 
 void SetPaused(bool paused);
-void SetSpeed(float multiplier);   // 1 normal, >1 fast forward (muted), 0 unlimited
+void SetSpeed(float multiplier);   // 1 normal, >1 fast forward, 0 unlimited
 void SetVolume(float volume);      // 0..1
+// Sound while fast-forwarding: 0 original pitch (default), 1 sped up, 2 muted.
+void SetFastForwardAudio(int32_t mode);
 
 void SetInput(uint32_t pressedMask);
 void SetTouch(bool down, int x, int y);

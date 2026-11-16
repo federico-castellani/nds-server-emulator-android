@@ -21,6 +21,7 @@ add_subdirectory(${MELONDS_DIR}/src/net/libslirp melonDS-slirp EXCLUDE_FROM_ALL)
 
 add_library(ndscore SHARED
     Core.cpp
+    FastForwardAudio.cpp
     Jni.cpp
     NetStats.cpp
     Platform.cpp

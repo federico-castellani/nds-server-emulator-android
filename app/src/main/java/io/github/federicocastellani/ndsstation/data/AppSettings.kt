@@ -17,6 +17,9 @@ import javax.crypto.spec.GCMParameterSpec
 enum class ScreenLayout { Auto, Vertical, SideBySide }
 enum class AppTheme { System, Light, Dark }
 
+/** Sound while fast-forwarding; the order matches the native core's modes. */
+enum class FastForwardSound { NormalPitch, SpedUp, Mute }
+
 /**
  * User preferences, backed by SharedPreferences. Values are Compose state so screens update
  * as soon as they change. The auth token is encrypted with a key kept in the Android Keystore.
@@ -34,6 +37,7 @@ class AppSettings(context: Context) {
     var screenLayout by enumPref("screenLayout", ScreenLayout.Auto)
     var volume by pref("volume", 0.8f)
     var fastForwardSpeed by pref("fastForwardSpeed", 3f)
+    var fastForwardSound by enumPref("fastForwardSound", FastForwardSound.NormalPitch)
     var controlsOpacity by pref("controlsOpacity", 0.55f)
     var controlsScale by pref("controlsScale", 1f)
     var haptics by pref("haptics", true)

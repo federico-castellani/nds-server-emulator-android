@@ -175,6 +175,7 @@ class EmulatorSession(private val app: NdsApp) {
 
     private fun boot(romPath: String, save: ByteArray?): Boolean {
         NativeCore.setVolume(settings.volume)
+        NativeCore.setFastForwardAudio(settings.fastForwardSound.ordinal)
         NativeCore.setSpeed(1f)
         // An existing console keeps its own MAC address; the account-derived one is only
         // for a brand new console.

@@ -18,6 +18,7 @@
 #include <thread>
 
 #include "CoreHooks.h"
+#include "FastForwardAudio.h"
 #include "NetStats.h"
 #include "SlirpDriver.h"
 
@@ -48,6 +49,12 @@ struct State
 
     std::atomic<float> speed{1.0f};
     std::atomic<float> volume{0.8f};
+
+    // Fast-forward: the emulation thread hands every frame's sound to ffAudio (the SPU
+    // buffer only holds ~40 ms), and the callback plays it time-compressed.
+    ndscore::FastForwardAudio ffAudio;
+    std::atomic<int32_t> ffSound{static_cast<int32_t>(ndscore::FastForwardSound::NormalPitch)};
+    bool ffActive = false;   // audio thread only
     std::atomic<float> fps{0.0f};
 
     std::atomic<uint32_t> inputMask{0};
@@ -96,19 +103,41 @@ std::string IpText(uint32_t ip)
 
 // --- Audio -----------------------------------------------------------------
 
+// Fast-forward sound is a little quieter: it keeps the atmosphere and tells the player
+// the game is not running normally.
+constexpr float kFastForwardVolume = 0.6f;
+
 aaudio_data_callback_result_t AudioCallback(AAudioStream*, void*, void* audioData, int32_t frames)
 {
     auto* samples = static_cast<int16_t*>(audioData);
+    const float speed = g.speed.load();
+    float volume = g.volume.load();
+    const auto ffSound = static_cast<ndscore::FastForwardSound>(g.ffSound.load());
+    const bool playing = g.running && !g.paused;
+    const bool fast = playing && speed != 1.0f;
+    if (fast != g.ffActive)
+    {
+        g.ffActive = fast;
+        g.ffAudio.Reset();
+    }
+
     int read = 0;
+    if (fast && ffSound != ndscore::FastForwardSound::Mute)
+    {
+        // The emulation thread drains the SPU into ffAudio; play the compressed stream.
+        read = g.ffAudio.Pull(samples, frames, speed, ffSound);
+        volume *= kFastForwardVolume;
+    }
+    else
     {
         std::lock_guard lock(g.audioMutex);
-        if (g.nds && g.running && !g.paused)
+        if (g.nds && playing)
             read = g.nds->SPU.ReadOutput(samples, frames);
+        if (fast) read = 0;   // muted fast-forward: drained and dropped
     }
     g.audioCv.notify_one();
 
-    const float volume = g.volume.load();
-    if (read <= 0 || volume <= 0.001f || g.speed.load() != 1.0f)
+    if (read <= 0 || volume <= 0.001f)
     {
         std::memset(samples, 0, frames * 4);
         return AAUDIO_CALLBACK_RESULT_CONTINUE;
@@ -158,6 +187,7 @@ void OpenAudio()
         std::lock_guard lock(g.audioMutex);
         g.audio = stream;
         g.audioRate = AAudioStream_getSampleRate(stream);
+        g.ffAudio.SetSampleRate(g.audioRate);
         g.audioBufferFrames = std::max(512, AAudioStream_getFramesPerBurst(stream) * 4);
         AAudioStream_requestStart(stream);
     }
@@ -228,6 +258,15 @@ void EmuThreadMain()
                 nds.ReleaseScreen();
             nds.RunFrame();
             CopyFramebuffers();
+
+            if (g.speed.load() != 1.0f &&
+                g.ffSound.load() != static_cast<int32_t>(ndscore::FastForwardSound::Mute))
+            {
+                s16 chunk[2 * 1024];
+                int n;
+                while ((n = nds.SPU.ReadOutput(chunk, 1024)) > 0)
+                    g.ffAudio.Push(chunk, n);
+            }
         }
 
         framesInWindow++;
@@ -493,6 +532,7 @@ void SetPaused(bool paused)
 
 void SetSpeed(float multiplier) { g.speed = std::max(0.0f, multiplier); }
 void SetVolume(float volume) { g.volume = std::clamp(volume, 0.0f, 1.0f); }
+void SetFastForwardAudio(int32_t mode) { g.ffSound = std::clamp(mode, 0, 2); }
 void SetInput(uint32_t pressedMask) { g.inputMask = pressedMask & 0xFFF; }
 
 void SetTouch(bool down, int x, int y)

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.FastForward
+import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Gamepad
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Opacity
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.github.federicocastellani.ndsstation.NdsApp
 import io.github.federicocastellani.ndsstation.data.AppTheme
+import io.github.federicocastellani.ndsstation.data.FastForwardSound
 import io.github.federicocastellani.ndsstation.data.ScreenLayout
 import io.github.federicocastellani.ndsstation.emulation.Gamepad
 import io.github.federicocastellani.ndsstation.emulation.NativeCore
@@ -162,6 +164,13 @@ fun SettingsScreen(modifier: Modifier) {
                 Icons.Outlined.FastForward, "Avanti veloce",
                 listOf(2f to "2×", 3f to "3×", 4f to "4×", 0f to "Max"), s.fastForwardSpeed,
             ) { s.fastForwardSpeed = it }
+        }
+        item {
+            Choice(
+                Icons.Outlined.GraphicEq, "Audio in avanti veloce",
+                listOf(FastForwardSound.NormalPitch to "Normale", FastForwardSound.SpedUp to "Accelerato", FastForwardSound.Mute to "Muto"),
+                s.fastForwardSound,
+            ) { s.fastForwardSound = it }
         }
 
         item { Header("Controlli") }

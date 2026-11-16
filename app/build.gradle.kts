@@ -13,8 +13,8 @@ android {
         applicationId = "io.github.federicocastellani.ndsstation"
         minSdk = 26          // AAudio
         targetSdk = 36
-        versionCode = 2
-        versionName = "2.0.1"
+        versionCode = 3
+        versionName = "2.0.2"
 
         ndk {
             // Phones, plus x86_64 for the Android emulator.

@@ -94,6 +94,7 @@ NATIVE(jboolean, isRunning)(JNIEnv*, jobject) { return ndscore::IsRunning(); }
 NATIVE(void, setPaused)(JNIEnv*, jobject, jboolean paused) { ndscore::SetPaused(paused); }
 NATIVE(void, setSpeed)(JNIEnv*, jobject, jfloat multiplier) { ndscore::SetSpeed(multiplier); }
 NATIVE(void, setVolume)(JNIEnv*, jobject, jfloat volume) { ndscore::SetVolume(volume); }
+NATIVE(void, setFastForwardAudio)(JNIEnv*, jobject, jint mode) { ndscore::SetFastForwardAudio(mode); }
 NATIVE(void, setInput)(JNIEnv*, jobject, jint mask) { ndscore::SetInput(static_cast<uint32_t>(mask)); }
 NATIVE(void, setTouch)(JNIEnv*, jobject, jboolean down, jint x, jint y) { ndscore::SetTouch(down, x, y); }
 
