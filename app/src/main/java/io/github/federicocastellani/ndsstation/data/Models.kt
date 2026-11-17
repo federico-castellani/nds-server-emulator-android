@@ -6,6 +6,9 @@ data class AdminUser(val id: Int, val username: String, val isAdmin: Boolean, va
 
 data class SearchUser(val id: Int, val username: String)
 
+/** A player's save as the admin sees it; [updatedAt] is ISO 8601. */
+data class AdminSave(val gameId: String, val title: String, val size: Long, val updatedAt: String?)
+
 data class LoginResult(val token: String, val mustChangePassword: Boolean, val isAdmin: Boolean)
 
 class ApiException(message: String, val statusCode: Int? = null, cause: Throwable? = null) : Exception(message, cause) {

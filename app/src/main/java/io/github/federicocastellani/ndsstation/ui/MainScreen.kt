@@ -134,7 +134,7 @@ fun MainScreen(onPlay: (GameInfo) -> Unit, onSignOut: (String?) -> Unit) {
         val modifier = Modifier.padding(padding)
         when (tab.title) {
             "Libreria" -> LibraryScreen(modifier, onPlay, onSessionExpired = { onSignOut("La sessione è scaduta. Accedi di nuovo.") })
-            "Amministrazione" -> AdminScreen(modifier)
+            "Amministrazione" -> AdminScreen(modifier, onSignOut)
             else -> SettingsScreen(modifier)
         }
     }

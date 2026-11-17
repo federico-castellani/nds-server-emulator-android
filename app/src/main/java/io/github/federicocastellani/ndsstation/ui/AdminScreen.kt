@@ -17,6 +17,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.DriveFileRenameOutline
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.SaveAs
 import androidx.compose.material.icons.outlined.FileOpen
 import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material.icons.outlined.PersonAdd
@@ -26,6 +29,8 @@ import androidx.compose.material.icons.outlined.Upload
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -54,6 +59,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import io.github.federicocastellani.ndsstation.NdsApp
 import io.github.federicocastellani.ndsstation.data.AdminUser
+import io.github.federicocastellani.ndsstation.data.ApiClient
 import io.github.federicocastellani.ndsstation.data.ApiException
 import io.github.federicocastellani.ndsstation.emulation.RomBanner
 import kotlinx.coroutines.Dispatchers
@@ -68,10 +74,10 @@ private fun generatePassword(): String {
 }
 
 /** A result line under a card: success or error. */
-private data class Feedback(val text: String, val error: Boolean)
+internal data class Feedback(val text: String, val error: Boolean)
 
 @Composable
-private fun FeedbackText(feedback: Feedback?) {
+internal fun FeedbackText(feedback: Feedback?) {
     feedback ?: return
     Surface(
         color = if (feedback.error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
@@ -95,7 +101,7 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-fun AdminScreen(modifier: Modifier) {
+fun AdminScreen(modifier: Modifier, onSignOut: (String?) -> Unit) {
     val app = NdsApp.instance
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -121,6 +127,10 @@ fun AdminScreen(modifier: Modifier) {
     var userQuery by remember { mutableStateOf("") }
     var resetFor by remember { mutableStateOf<AdminUser?>(null) }
     var deleteFor by remember { mutableStateOf<AdminUser?>(null) }
+    var renameFor by remember { mutableStateOf<AdminUser?>(null) }
+    var savesFor by remember { mutableStateOf<AdminUser?>(null) }
+    val selfId = ApiClient.tokenUserId(app.api.token)
+    fun isSelf(user: AdminUser) = selfId?.let { it == user.id } ?: user.username.equals(app.settings.username, ignoreCase = true)
 
     suspend fun loadUsers() {
         usersLoading = true
@@ -183,6 +193,49 @@ fun AdminScreen(modifier: Modifier) {
                 }) { Text("Reimposta") }
             },
             dismissButton = { TextButton(onClick = { resetFor = null }) { Text("Annulla") } },
+        )
+    }
+
+    savesFor?.let { user -> UserSavesDialog(user) { savesFor = null } }
+
+    renameFor?.let { user ->
+        var name by remember(user) { mutableStateOf(user.username) }
+        val self = isSelf(user)
+        AlertDialog(
+            onDismissRequest = { renameFor = null },
+            title = { Text("Cambia nome utente") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        if (self) "Dopo il cambio dovrai accedere di nuovo con il nuovo nome."
+                        else "${user.username} verrà disconnesso e dovrà accedere con il nuovo nome. Salvataggi, console e amici restano invariati."
+                    )
+                    OutlinedTextField(name, { if (it.length <= 50) name = it }, label = { Text("Nuovo nome utente") }, singleLine = true)
+                }
+            },
+            confirmButton = {
+                TextButton(enabled = name.isNotBlank() && name.trim() != user.username, onClick = {
+                    renameFor = null
+                    val newName = name.trim()
+                    scope.launch {
+                        try {
+                            app.api.renameUser(user.id, newName)
+                        } catch (e: ApiException) {
+                            usersFeedback = Feedback(if (e.statusCode == 409) "Il nome “$newName” è già in uso." else e.message ?: "Errore", true)
+                            return@launch
+                        }
+                        if (self) {
+                            // This session ended with the rename: sign in again, with the new name filled in.
+                            app.settings.username = newName
+                            onSignOut("Il tuo nome utente ora è “$newName”: accedi di nuovo.")
+                        } else {
+                            usersFeedback = Feedback("“${user.username}” ora si chiama “$newName”: dovrà accedere di nuovo con il nuovo nome.", false)
+                            loadUsers()
+                        }
+                    }
+                }) { Text("Rinomina") }
+            },
+            dismissButton = { TextButton(onClick = { renameFor = null }) { Text("Annulla") } },
         )
     }
 
@@ -310,7 +363,8 @@ fun AdminScreen(modifier: Modifier) {
         }
 
         items(visibleUsers, key = { it.id }) { user ->
-            val self = user.username.equals(app.settings.username, ignoreCase = true)
+            val self = isSelf(user)
+            var menu by remember { mutableStateOf(false) }
             ListItem(
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
                 modifier = Modifier.padding(horizontal = 4.dp),
@@ -334,9 +388,25 @@ fun AdminScreen(modifier: Modifier) {
                 },
                 trailingContent = {
                     Row {
-                        IconButton(onClick = { resetFor = user }) { Icon(Icons.Outlined.Key, "Reimposta password") }
-                        IconButton(onClick = { deleteFor = user }, enabled = !self) {
-                            Icon(Icons.Outlined.DeleteOutline, "Elimina utente", tint = if (self) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error)
+                        IconButton(onClick = { savesFor = user }) { Icon(Icons.Outlined.SaveAs, "Salvataggi") }
+                        androidx.compose.foundation.layout.Box {
+                            IconButton(onClick = { menu = true }) { Icon(Icons.Outlined.MoreVert, "Altre azioni") }
+                            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                                DropdownMenuItem(
+                                    text = { Text("Cambia nome") }, leadingIcon = { Icon(Icons.Outlined.DriveFileRenameOutline, null) },
+                                    onClick = { menu = false; renameFor = user },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Reimposta password") }, leadingIcon = { Icon(Icons.Outlined.Key, null) },
+                                    onClick = { menu = false; resetFor = user },
+                                )
+                                val danger = if (self) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error
+                                DropdownMenuItem(
+                                    text = { Text("Elimina", color = danger) },
+                                    leadingIcon = { Icon(Icons.Outlined.DeleteOutline, null, tint = danger) },
+                                    enabled = !self, onClick = { menu = false; deleteFor = user },
+                                )
+                            }
                         }
                     }
                 },

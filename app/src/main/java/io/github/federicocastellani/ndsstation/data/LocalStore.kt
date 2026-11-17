@@ -21,10 +21,43 @@ class LocalStore(context: Context) {
     private var scope = "default"
     private var scopeHash = ByteArray(32)
 
-    fun setScope(serverUrl: String, username: String) {
-        val raw = "${serverUrl.trim().trimEnd('/').lowercase()}|${username.trim().lowercase()}"
-        scopeHash = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
-        scope = scopeHash.joinToString("") { "%02x".format(it) }.take(16)
+    /**
+     * Selects the account whose files are used: per server and account id, so renaming the
+     * account changes nothing here. Versions before 2.2 kept them per username: the folders of
+     * the name just used to sign in (so of this same account) are moved over once. Without an
+     * id (a server that does not send one) the username is still used.
+     */
+    fun setScope(serverUrl: String, userId: Int?, username: String) {
+        val server = serverUrl.trim().trimEnd('/').lowercase()
+        val legacy = scopeOf("$server|${username.trim().lowercase()}")
+        if (userId == null) {
+            scopeHash = legacy.first; scope = legacy.second
+            return
+        }
+        // A newline cannot be part of a username, so this never matches a username scope.
+        val current = scopeOf("$server\nid=$userId")
+        scopeHash = current.first; scope = current.second
+        moveScope(legacy.second, scope)
+    }
+
+    private fun scopeOf(raw: String): Pair<ByteArray, String> {
+        val hash = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray())
+        return hash to hash.joinToString("") { "%02x".format(it) }.take(16)
+    }
+
+    private fun moveScope(from: String, to: String) {
+        // Left where it is if it cannot move: not lost, only not visible to this account.
+        for (area in listOf(File(root, "saves"), File(root, "states"), cacheRoot)) {
+            val source = File(area, from)
+            val target = File(area, to)
+            if (source.isDirectory && (!target.exists() || target.list().isNullOrEmpty())) {
+                target.delete()
+                source.renameTo(target)
+            }
+        }
+        val firmware = File(root, "firmware/$from.bin")
+        val newFirmware = File(root, "firmware/$to.bin")
+        if (firmware.exists() && !newFirmware.exists()) firmware.renameTo(newFirmware)
     }
 
     private fun dir(name: String) = File(root, "$name/$scope").apply { mkdirs() }

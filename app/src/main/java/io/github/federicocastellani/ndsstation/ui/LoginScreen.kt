@@ -79,7 +79,7 @@ fun LoginScreen(onSignedIn: () -> Unit) {
 
     fun enterApp() {
         if (!settings.isAdmin && ApiClient.tokenSaysAdmin(app.api.token)) settings.isAdmin = true
-        app.store.setScope(app.api.baseUrl, settings.username)
+        app.store.setScope(app.api.baseUrl, ApiClient.tokenUserId(app.api.token), settings.username)
         onSignedIn()
     }
 

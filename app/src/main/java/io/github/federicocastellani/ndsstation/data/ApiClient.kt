@@ -208,6 +208,37 @@ class ApiClient {
         send(Request.Builder().url(url("admin/users/$id/reset-password")).post(body.toBody())).close()
     }
 
+    /** Renames a user; they are signed out and sign in again with the new name. */
+    suspend fun renameUser(id: Int, username: String) = io {
+        val body = JSONObject().put("username", username)
+        send(Request.Builder().url(url("admin/users/$id")).patch(body.toBody())).close()
+    }
+
+    suspend fun userSaves(id: Int): List<AdminSave> = io {
+        send(Request.Builder().url(url("admin/users/$id/saves")).get()).use { response ->
+            readArray(response, "saves").objects().map { s ->
+                AdminSave(readId(s.opt("gameId")), s.optString("title"), s.optLong("size"), s.optString("updatedAt").ifEmpty { null })
+            }
+        }
+    }
+
+    suspend fun downloadUserSave(id: Int, gameId: String): ByteArray = io {
+        send(Request.Builder().url(url("admin/users/$id/saves/${enc(gameId)}")).get()).use { response ->
+            response.body?.bytes() ?: throw ApiException("Risposta vuota dal server.")
+        }
+    }
+
+    /** Replaces (or creates) a player's save; returns the size the server stored. */
+    suspend fun replaceUserSave(id: Int, gameId: String, fileName: String, data: ByteArray): Long = io {
+        val form = MultipartBody.Builder().setType(MultipartBody.FORM)
+            .addPart(field("gameId"), gameId.toRequestBody())
+            .addPart(fileField("saveFile", fileName), data.toRequestBody(OCTET))
+            .build()
+        send(Request.Builder().url(url("admin/users/$id/saves")).post(form)).use { response ->
+            runCatching { JSONObject(response.body?.string() ?: "").optLong("size", data.size.toLong()) }.getOrDefault(data.size.toLong())
+        }
+    }
+
     // --- Library management -----------------------------------------------------------
 
     suspend fun addGameTitle(name: String) = io {
@@ -326,13 +357,25 @@ class ApiClient {
 
         /** Reads admin flags from the JWT payload, as the server may omit them elsewhere. */
         fun tokenSaysAdmin(token: String?): Boolean {
-            val parts = token?.split('.') ?: return false
-            if (parts.size != 3) return false
+            val json = tokenClaims(token) ?: return false
+            return listOf("is_admin", "isAdmin", "role").firstOrNull { json.has(it) }?.let { truthy(json.opt(it)) } ?: false
+        }
+
+        /** The account id in the token, which (unlike the username) never changes. */
+        fun tokenUserId(token: String?): Int? {
+            val json = tokenClaims(token) ?: return null
+            return listOf("user_id", "userId", "id").firstOrNull { json.has(it) }
+                ?.let { json.opt(it)?.toString()?.toIntOrNull() }
+        }
+
+        /** The (unverified) claims of a JWT; the server checks the signature. */
+        private fun tokenClaims(token: String?): JSONObject? {
+            val parts = token?.split('.') ?: return null
+            if (parts.size != 3) return null
             return try {
-                val json = JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)))
-                listOf("is_admin", "isAdmin", "role").firstOrNull { json.has(it) }?.let { truthy(json.opt(it)) } ?: false
+                JSONObject(String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_PADDING or Base64.NO_WRAP)))
             } catch (_: Exception) {
-                false
+                null
             }
         }
 
